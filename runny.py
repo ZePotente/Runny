@@ -1,8 +1,9 @@
 import os
-import os, win32com.client
+import win32com.client
 
-def get_scripts(path='output'):
-    return [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(path) for f in filenames]
+def get_scripts(dir_path='output'):
+    """Devuelve una lista de los paths de los scripts en la carpeta path"""
+    return [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(dir_path) for f in filenames]
 
 def armar_script(programs, nombre_script='script.bat'):
     """Arma un script a partir de la lista de programas y devuelve el path del script"""
@@ -33,6 +34,12 @@ def armar_lnk(path_script, nombre_lnk='script.lnk', args='', hotkey = ''):
 
     return path_lnk
 
+def obtener_path_programas(prog, nombres):
+    return [p for p in prog for nombre in nombres if nombre == nombre_from_path(p)]
+
+def nombre_from_path(path):
+    return os.path.splitext(os.path.split(path)[1])[0]
+
 DEFAULT_EXTENSIONS = ('.exe', '.lnk')
 DEFAULT_OUT = 'output'
 program_paths = (r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs', r'C:\Users\Pinky\AppData\Roaming\Microsoft\Windows\Start Menu\Programs')
@@ -44,13 +51,72 @@ programs_lnk = [program for program in programs_all if (os.path.splitext(program
 
 i_selected = [0, 45, 62]
 programs_selected = [programs_lnk[i] for i in i_selected]
-print('Programas seleccionados:')
-print(programs_selected)
+#print('Programas seleccionados:')
+#print(programs_selected)
 
 out_path = armar_script(programs_selected)
 lnk_path = armar_lnk(out_path)
 
-print('Path del script: ' + out_path)
-print('Path del link: ' + lnk_path)
-print('Listado de scripts:')
-print(get_scripts())
+#print('Path del script: ' + out_path)
+#print('Path del link: ' + lnk_path)
+#print('Listado de scripts:')
+#print(get_scripts())
+
+# No digan cómo programo por favor
+## GUI
+import PySimpleGUI as sg
+nombres_selected = []
+programas = sorted([os.path.splitext(os.path.split(p)[1])[0] for p in sorted(programs_lnk)])
+program_list_column = [
+    # Buscador
+    #[],
+    [sg.Text('Programas')],
+    [sg.Listbox(
+        values=programas,
+        enable_events=False, size=(40,20), horizontal_scroll=True,
+        key="-LISTA PROGRAMAS-"
+    )],
+    [sg.Button('Agregar')]
+]
+
+shortcut_list_column = [
+    [sg.Text('Shortcut')],
+    [sg.Listbox(
+        values=nombres_selected, enable_events=True, size=(40,20), horizontal_scroll=True,
+        key='-LISTA SHORTCUT-'
+    )],
+    [sg.Button('Quitar'), sg.Button('Editar')],
+    [sg.Button('Crear')]
+]
+
+layout = [
+    [
+        sg.Column(program_list_column),
+        sg.VSeparator(),
+        sg.Column(shortcut_list_column)
+    ]
+]
+
+window = sg.Window('Runny-GUI', layout)
+
+# event loop
+while True:
+    event, values = window.read()
+    if event == sg.WIN_CLOSED:
+        break
+    if event == 'Agregar':
+        nombres_selected.extend(window['-LISTA PROGRAMAS-'].get())
+        window['-LISTA SHORTCUT-'].update(nombres_selected)
+    if event == 'Quitar':
+        if (window['-LISTA SHORTCUT-'].get() != []):
+            p = window['-LISTA SHORTCUT-'].get()[0]
+            nombres_selected.remove(p)
+            window['-LISTA SHORTCUT-'].update(nombres_selected)
+    if event == 'Crear':
+        if nombres_selected != []:
+            nombre_lnk = 'hola.lnk'
+            programas_selected = obtener_path_programas(programs_lnk, nombres_selected)
+            out_path = armar_script(programas_selected)
+            lnk_path = armar_lnk(out_path, nombre_lnk=nombre_lnk)
+
+window.close()
