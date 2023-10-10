@@ -42,7 +42,10 @@ def nombre_from_path(path):
 
 DEFAULT_EXTENSIONS = ('.exe', '.lnk')
 DEFAULT_OUT = 'output'
-program_paths = (r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs', r'C:\Users\Pinky\AppData\Roaming\Microsoft\Windows\Start Menu\Programs')
+program_paths = (r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs', 
+                 r'C:\Users\Pinky\AppData\Roaming\Microsoft\Windows\Start Menu\Programs',
+                 #os.path.expanduser(r'~\Desktop') # Rompe la unicidad de los programas
+                 )
 programs_all = [os.path.join(dirpath,f) for p in program_paths for (dirpath, dirnames, filenames) in os.walk(p) for f in filenames]
 programs_lnk = [program for program in programs_all if (os.path.splitext(program)[1] in DEFAULT_EXTENSIONS)]
 
@@ -66,11 +69,15 @@ lnk_path = armar_lnk(out_path)
 ## GUI
 import PySimpleGUI as sg
 nombres_selected = []
+#programas = sorted([os.path.splitext(os.path.split(p)[1])[0] + ' - ' + p for p in sorted(programs_lnk)])
 programas = sorted([os.path.splitext(os.path.split(p)[1])[0] for p in sorted(programs_lnk)])
 program_list_column = [
     # Buscador
-    #[],
     [sg.Text('Programas')],
+    [
+        sg.Text('Busqueda:'), 
+        sg.Input(enable_events=True, key='-IN-', size=(30,None))
+    ],
     [sg.Listbox(
         values=programas,
         enable_events=False, size=(40,20), horizontal_scroll=True,
@@ -85,8 +92,15 @@ shortcut_list_column = [
         values=nombres_selected, enable_events=True, size=(40,20), horizontal_scroll=True,
         key='-LISTA SHORTCUT-'
     )],
-    [sg.Button('Quitar'), sg.Button('Editar')],
-    [sg.Button('Crear')]
+    [
+        sg.Button('Quitar'), 
+        sg.Button('Limpiar'), 
+        #sg.Button('Editar')
+    ],
+    [
+        sg.Text('Nombre:'), 
+        sg.Input(enable_events=True, key='-OUT-', size=(25,None)),
+        sg.Button('Crear')]
 ]
 
 layout = [
@@ -104,9 +118,14 @@ while True:
     event, values = window.read()
     if event == sg.WIN_CLOSED:
         break
+    # Pestaña Programas
     if event == 'Agregar':
         nombres_selected.extend(window['-LISTA PROGRAMAS-'].get())
         window['-LISTA SHORTCUT-'].update(nombres_selected)
+    if event == '-IN-':
+        busqueda = values['-IN-'].casefold()
+        window['-LISTA PROGRAMAS-'].update([p for p in programas if busqueda in p.casefold()])
+    # Pestaña Shortcut
     if event == 'Quitar':
         if (window['-LISTA SHORTCUT-'].get() != []):
             p = window['-LISTA SHORTCUT-'].get()[0]
@@ -114,9 +133,15 @@ while True:
             window['-LISTA SHORTCUT-'].update(nombres_selected)
     if event == 'Crear':
         if nombres_selected != []:
-            nombre_lnk = 'hola.lnk'
+            #nombre_lnk = 'hola.lnk'
+            nombre_lnk = os.path.splitext(values['-OUT-'])[0]
             programas_selected = obtener_path_programas(programs_lnk, nombres_selected)
-            out_path = armar_script(programas_selected)
-            lnk_path = armar_lnk(out_path, nombre_lnk=nombre_lnk)
+            out_path = armar_script(programas_selected, nombre_script=nombre_lnk + '.bat')
+            lnk_path = armar_lnk(out_path, nombre_lnk=nombre_lnk + '.lnk')
+            # Tirar popup de éxito
+            sg.popup('Atajo creado exitosamente')
+    if event == 'Limpiar':
+        nombres_selected.clear()
+        window['-LISTA SHORTCUT-'].update(nombres_selected)
 
 window.close()
